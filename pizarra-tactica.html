@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pizarra Táctica - Basketball Analytics</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #f4f4f4; display: flex; flex-direction: column; align-items: center; padding: 16px; min-height: 100vh; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 12px; color: #1a1a1a; letter-spacing: -0.3px; }
+  .toolbar {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+    padding: 8px 12px; margin-bottom: 10px; width: 100%; max-width: 900px;
+  }
+  .sep { width: 1px; height: 28px; background: #e0e0e0; margin: 0 4px; }
+  .tlabel { font-size: 11px; color: #888; white-space: nowrap; margin-right: 2px; }
+  button {
+    display: flex; align-items: center; gap: 4px;
+    padding: 5px 10px; font-size: 12px; font-family: inherit;
+    border: 1px solid #ddd; border-radius: 6px;
+    background: #fff; cursor: pointer; color: #444;
+  }
+  button:hover { background: #f5f5f5; }
+  button.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  button.danger:hover { background: #fff0f0; color: #c00; border-color: #f5a0a0; }
+  .icon { width: 16px; height: 16px; display: inline-block; }
+  .color-swatch {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .color-swatch.active { border-color: #1a1a1a; }
+  input[type=range] { width: 70px; accent-color: #1a1a1a; }
+  .canvas-container { position: relative; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+  canvas { display: block; cursor: crosshair; }
+  #canvas-draw { position: absolute; top: 0; left: 0; }
+  .bottom { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 900px; margin-top: 8px; flex-wrap: wrap; gap: 8px; }
+  .hint { font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+<h1><a href="index.html" style="text-decoration:none;font-size:20px;font-weight:700;margin-right:12px;vertical-align:middle;"><span style="color:#1a7a4a;">B</span><span style="color:#1a1a1a;">A</span></a>Pizarra Táctica</h1>
+
+<nav style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;justify-content:center;">
+  <a href="diccionario.html" style="padding:6px 13px;font-size:12px;border:1px solid #ddd;border-radius:7px;text-decoration:none;color:#555;background:#fff;">Diccionario</a>
+  <a href="prediccion-menu.html" style="padding:6px 13px;font-size:12px;border:1px solid #ddd;border-radius:7px;text-decoration:none;color:#555;background:#fff;">Predicción</a>
+  <a href="comunidad.html" style="padding:6px 13px;font-size:12px;border:1px solid #ddd;border-radius:7px;text-decoration:none;color:#555;background:#fff;">Comunidad</a>
+  <a href="sobre.html" style="padding:6px 13px;font-size:12px;border:1px solid #ddd;border-radius:7px;text-decoration:none;color:#555;background:#fff;">¿Quiénes somos?</a>
+</nav>
+
+<div class="toolbar">
+  <!-- Vista -->
+  <span class="tlabel">Vista</span>
+  <button id="btn-full" class="active">Pista completa</button>
+  <button id="btn-half">Media pista</button>
+  <div class="sep"></div>
+
+  <!-- Herramienta -->
+  <span class="tlabel">Herramienta</span>
+  <button id="btn-select" class="active" title="Seleccionar/mover jugadores">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+    Mover
+  </button>
+  <button id="btn-draw" title="Dibujar trazo libre">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+    Lápiz
+  </button>
+  <button id="btn-arrow" title="Dibujar flecha de movimiento">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>
+    Flecha
+  </button>
+  <button id="btn-line" title="Dibujar línea recta">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+    Línea
+  </button>
+  <button id="btn-erase" title="Borrar trazos">
+    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l10-10 7 7-2.5 2.5"/><path d="M6.0001 11L13 18"/></svg>
+    Borrador
+  </button>
+  <div class="sep"></div>
+
+  <!-- Color -->
+  <span class="tlabel">Color</span>
+  <div class="color-swatch active" style="background:#000000" data-color="#000000" title="Negro"></div>
+  <div class="color-swatch" style="background:#ffffff; outline: 1px solid #ccc;" data-color="#ffffff" title="Blanco"></div>
+  <div class="color-swatch" style="background:#e63030" data-color="#e63030" title="Rojo"></div>
+  <div class="color-swatch" style="background:#f5a623" data-color="#f5a623" title="Naranja"></div>
+  <div class="color-swatch" style="background:#f5e623" data-color="#f5e623" title="Amarillo"></div>
+  <div class="color-swatch" style="background:#2979ff" data-color="#2979ff" title="Azul"></div>
+  <div class="color-swatch" style="background:#00c853" data-color="#00c853" title="Verde"></div>
+  <div class="color-swatch" style="background:#aa00ff" data-color="#aa00ff" title="Morado"></div>
+  <div class="color-swatch" style="background:#ff4081" data-color="#ff4081" title="Rosa"></div>
+  <div class="color-swatch" style="background:#00bcd4" data-color="#00bcd4" title="Cian"></div>
+  <div class="sep"></div>
+
+  <!-- Grosor -->
+  <span class="tlabel">Grosor</span>
+  <input type="range" id="brush-size" min="1" max="14" value="3" step="1">
+  <div class="sep"></div>
+
+  <!-- Jugadores -->
+  <span class="tlabel">Jugadores</span>
+  <button id="btn-add-local" style="color:#c04010; border-color:#f5a090;">⬤ Local</button>
+  <button id="btn-add-visit" style="color:#0a4d9c; border-color:#90b8f5;">⬤ Visitante</button>
+</div>
+
+<!-- Canvas: fondo de cancha + capa de dibujo -->
+<div class="canvas-container" id="canvas-wrap">
+  <canvas id="canvas-court"></canvas>
+  <canvas id="canvas-draw"></canvas>
+</div>
+
+<div class="bottom">
+  <span class="hint" id="hint-text">Selecciona una herramienta para comenzar</span>
+  <div style="display:flex;gap:8px;">
+    <button id="btn-undo">↩ Deshacer</button>
+    <button id="btn-clear" class="danger">🗑 Limpiar todo</button>
+    <button id="btn-save">⬇ Guardar imagen</button>
+  </div>
+</div>
+
+<script>
+// ─── Canvases ───────────────────────────────────────────────────────────────
+const courtCanvas = document.getElementById('canvas-court');
+const drawCanvas  = document.getElementById('canvas-draw');
+const cc = courtCanvas.getContext('2d');
+const dc = drawCanvas.getContext('2d');
+
+// FIBA court: 28m × 15m → scale to fit
+// Full court render area:
+let viewMode = 'full';
+let CW, CH; // canvas logical size set in resize()
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let tool = 'select';
+let drawColor = '#000000';
+let brushSize = 3;
+let drawing = false;
+let arrowStart = null, arrowPreview = null;
+let lineStart = null, linePreview = null;
+let players = [];
+let strokes = []; // saved strokes on draw canvas layer
+let currentStroke = null;
+let dragging = null, dragOffset = {x:0,y:0};
+let history = [];
+
+// ─── Sizing ──────────────────────────────────────────────────────────────────
+function setSize() {
+  const maxW = Math.min(window.innerWidth - 40, 900);
+  // FIBA full court 28:15 ratio, half court 14:15
+  if (viewMode === 'full') {
+    CW = maxW;
+    CH = Math.round(maxW * 15 / 28);
+  } else {
+    CW = maxW;
+    CH = Math.round(maxW * 15 / 14);
+    if (CH > 600) { CH = 600; CW = Math.round(CH * 14 / 15); }
+  }
+  [courtCanvas, drawCanvas].forEach(c => { c.width = CW; c.height = CH; });
+}
+
+// ─── Parquet ─────────────────────────────────────────────────────────────────
+function drawParquet(ctx, w, h) {
+  // Base maple wood color (parquet NBA/FIBA)
+  ctx.fillStyle = '#C8A45A';
+  ctx.fillRect(0, 0, w, h);
+
+  // Horizontal wood planks alternating tone
+  const bandH = Math.round(h / 20);
+  for (let i = 0; i < 21; i++) {
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,220,130,0.18)' : 'rgba(120,70,10,0.10)';
+    ctx.fillRect(0, i * bandH, w, bandH);
+  }
+  // Vertical plank separation lines
+  const pw = Math.round(w / 30);
+  ctx.strokeStyle = 'rgba(100,60,10,0.18)';
+  ctx.lineWidth = 0.7;
+  for (let x = 0; x <= w; x += pw) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  // Horizontal plank separators
+  for (let y = 0; y <= h; y += bandH) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+  // Wood grain subtle lines
+  ctx.strokeStyle = 'rgba(160,100,20,0.07)';
+  ctx.lineWidth = 0.4;
+  for (let y = 0; y <= h; y += Math.round(bandH/4)) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+}
+
+// ─── Court geometry helpers ───────────────────────────────────────────────────
+// All measurements are real FIBA proportions (in metres):
+// Full court: 28 × 15
+// Key (zone): 4.9m wide, 5.8m from baseline  (each side)
+// Three-point line: 6.75m from basket centre, corners at 0.9m from sideline
+// Basket: 1.575m from baseline
+// Free throw line: 5.8m from baseline (= far edge of key)
+// Center circle: r = 1.8m
+// Three-point corner straight: from baseline to where arc starts (y = ±3.0 from centre)
+// Restricted arc: r = 1.25m
+
+function buildScale(w, h) {
+  // Court in metres
+  const courtW = viewMode === 'full' ? 28 : 14; // metres
+  const courtH = 15;
+  const pad = 0.5; // metres padding outside court lines
+  const totalW = courtW + 2 * pad;
+  const totalH = courtH + 2 * pad;
+  const scaleX = w / totalW;
+  const scaleY = h / totalH;
+  const scale = Math.min(scaleX, scaleY);
+  const offsetX = (w - courtW * scale) / 2;
+  const offsetY = (h - courtH * scale) / 2;
+  function m(mx, my) { return { x: offsetX + mx * scale, y: offsetY + my * scale }; }
+  return { scale, offsetX, offsetY, m, courtW, courtH };
+}
+
+function drawFullCourtLines(ctx, w, h) {
+  const {scale, offsetX, offsetY, m, courtW, courtH} = buildScale(w, h);
+  const LC = '#1a1a1a';
+  const LW = Math.max(1.5, scale * 0.05);
+
+  ctx.strokeStyle = LC;
+  ctx.fillStyle = LC;
+  ctx.lineWidth = LW;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Outer boundary
+  const tl = m(0, 0), br = m(courtW, courtH);
+  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+
+  // Centre line
+  const cl1 = m(courtW/2, 0), cl2 = m(courtW/2, courtH);
+  ctx.beginPath(); ctx.moveTo(cl1.x, cl1.y); ctx.lineTo(cl2.x, cl2.y); ctx.stroke();
+
+  // Centre circle r=1.8m
+  const centre = m(courtW/2, courtH/2);
+  ctx.beginPath(); ctx.arc(centre.x, centre.y, 1.8 * scale, 0, Math.PI*2); ctx.stroke();
+
+  // Centre dot
+  ctx.beginPath(); ctx.arc(centre.x, centre.y, 0.15*scale, 0, Math.PI*2); ctx.fill();
+
+  // Draw each basket end
+  drawBasketEnd(ctx, scale, m, 'left',  courtH, LC, LW);
+  drawBasketEnd(ctx, scale, m, 'right', courtH, LC, LW);
+}
+
+function drawHalfCourtLines(ctx, w, h) {
+  const {scale, offsetX, offsetY, m, courtW, courtH} = buildScale(w, h);
+  const LC = '#1a1a1a';
+  const LW = Math.max(1.5, scale * 0.05);
+
+  ctx.strokeStyle = LC;
+  ctx.fillStyle = LC;
+  ctx.lineWidth = LW;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Outer boundary (half court = 14×15)
+  const tl = m(0, 0), br = m(courtW, courtH);
+  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+
+  // Draw basket end on left side (the half court we show)
+  drawBasketEnd(ctx, scale, m, 'left', courtH, LC, LW);
+
+  // Half court line on right side
+  // (already the right boundary of the rect, so just draw the circle half)
+  const cRight = m(courtW, courtH/2);
+  ctx.beginPath();
+  ctx.arc(cRight.x, cRight.y, 1.8*scale, Math.PI/2, -Math.PI/2, true);
+  ctx.stroke();
+}
+
+function drawBasketEnd(ctx, scale, m, side, courtH, LC, LW) {
+  // FIBA measurements (metres)
+  const basketFromBaseline = 1.575;
+  const keyWidth = 4.9;   // total width of key (painted area)
+  const keyDepth = 5.8;   // from baseline to free throw line
+  const ftRadius  = 1.8;  // free throw circle radius
+  const tripleR   = 6.75; // 3pt radius from basket centre
+  const cornerY   = 0.9;  // 3pt corners: 0.9m from sideline → y = 0.9 or courtH-0.9
+  const restrictedR = 1.25;
+  const basketY   = courtH / 2;
+
+  const cX = side === 'left' ? basketFromBaseline : (courtH === 15 ? 28 - basketFromBaseline : 14 - basketFromBaseline);
+  // For half court, courtW is 14; for full it's 28. Use m() which handles both.
+  const courtW = side === 'left' ? 0 : (Object.keys(m).length); // not useful, derive from context
+  // basket X coordinate in metres from left baseline
+  const bxM = side === 'left' ? basketFromBaseline : (viewMode === 'full' ? 28 - basketFromBaseline : 14 - basketFromBaseline);
+  const byM = courtH / 2; // 7.5
+
+  const basket = m(bxM, byM);
+
+  // Key corners in metres
+  const keyTop    = byM - keyWidth/2;   // 7.5 - 2.45 = 5.05
+  const keyBottom = byM + keyWidth/2;   // 7.5 + 2.45 = 9.95
+  const keyFar    = side === 'left' ? keyDepth : (viewMode==='full'?28:14) - keyDepth; // far edge (free throw line)
+
+  // Key rectangle
+  if (side === 'left') {
+    const ktl = m(0, keyTop);
+    ctx.strokeRect(ktl.x, ktl.y, (keyFar)*scale - ktl.x + m(0,0).x, keyWidth*scale);
+    // Correction: just do it properly
+    ctx.clearRect(0,0,0,0); // no-op reset
+  }
+
+  // Redo key rect cleanly
+  const kLeft  = side === 'left' ? m(0, keyTop)       : m(viewMode==='full'?28:14, keyTop);
+  const kRight = side === 'left' ? m(keyDepth, keyTop) : m((viewMode==='full'?28:14)-keyDepth, keyTop);
+
+  ctx.strokeStyle = LC; ctx.lineWidth = LW;
+
+  if (side === 'left') {
+    ctx.strokeRect(m(0,keyTop).x, m(0,keyTop).y, m(keyDepth,0).x - m(0,0).x, keyWidth*scale);
+  } else {
+    const rw = viewMode==='full' ? 28 : 14;
+    ctx.strokeRect(m(rw-keyDepth, keyTop).x, m(0,keyTop).y, m(keyDepth,0).x - m(0,0).x, keyWidth*scale);
+  }
+
+  // Free throw circle (solid top half, dashed bottom half)
+  const ftCentre = side === 'left' ? m(keyDepth, byM) : m((viewMode==='full'?28:14)-keyDepth, byM);
+
+  // Solid half (outside, towards mid-court)
+  ctx.beginPath();
+  if (side === 'left') {
+    ctx.arc(ftCentre.x, ftCentre.y, ftRadius*scale, Math.PI/2, -Math.PI/2, true);
+  } else {
+    ctx.arc(ftCentre.x, ftCentre.y, ftRadius*scale, -Math.PI/2, Math.PI/2, true);
+  }
+  ctx.stroke();
+
+  // Dashed half (inside, towards basket)
+  ctx.setLineDash([8, 7]);
+  ctx.beginPath();
+  if (side === 'left') {
+    ctx.arc(ftCentre.x, ftCentre.y, ftRadius*scale, -Math.PI/2, Math.PI/2, true);
+  } else {
+    ctx.arc(ftCentre.x, ftCentre.y, ftRadius*scale, Math.PI/2, -Math.PI/2, true);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Restricted area arc (r=1.25m from basket)
+  ctx.beginPath();
+  if (side === 'left') {
+    ctx.arc(basket.x, basket.y, restrictedR*scale, Math.PI/2, -Math.PI/2, true);
+  } else {
+    ctx.arc(basket.x, basket.y, restrictedR*scale, -Math.PI/2, Math.PI/2, true);
+  }
+  ctx.stroke();
+
+  // Three-point line
+  // Corner straight lines from baseline
+  const corner3Top = m(bxM, cornerY);     // top corner (0.9m from top sideline)
+  const corner3Bot = m(bxM, courtH - cornerY); // bottom corner
+
+  // The arc starts where y distance from basket = tripleR, clipped to cornerY
+  // Angle where straight line meets arc:
+  const sinAng = (byM - cornerY) / tripleR; // sin of angle from horizontal
+  const ang = Math.asin(sinAng);
+
+  if (side === 'left') {
+    // Top straight segment from baseline to arc start
+    ctx.beginPath();
+    ctx.moveTo(m(0, cornerY).x, m(0, cornerY).y);
+    ctx.lineTo(m(bxM - Math.cos(ang)*tripleR + tripleR*Math.cos(ang), cornerY).x, m(0, cornerY).y);
+    // Simpler: just draw straight to where arc starts
+    const arcStartX = bxM + Math.cos(ang) * tripleR; // nope - need correct geometry
+
+    // Three point arc: centre at basket, radius tripleR
+    // Arc goes from angle = -(PI/2 - ang) to +(PI/2 - ang) (sweeping towards mid court)
+    // Top corner point on arc: basket + tripleR*(cos θ, -sin θ) where sin θ = (byM-cornerY)/tripleR
+    // The straight lines go from baseline (x=0) horizontally to where the arc is at y=cornerY
+    // x of that point = bxM - tripleR * cos(ang)  [left of basket]
+    // BUT since bxM=1.575 and tripleR=6.75, cos(ang)*6.75 > 1.575, so arc centre is to right of baseline
+
+    // Correct:
+    // basket is at (bxM, byM). Arc centre = basket.
+    // At top corner: y = cornerY = 0.9 → dy = byM - 0.9 = 6.6, but tripleR=6.75
+    // sin(half_angle) = 6.6/6.75 = 0.9778, half_angle = 77.9°
+    // x at corner = bxM + 6.75*cos(77.9°) [negative cos going left] 
+    // Actually the arc sweeps around the basket from top-corner to bottom-corner, going away from baseline
+    // At corners: point = (basket.x - tripleR*cos(ang), cornerY) in metres
+    // corner_x_m = bxM - tripleR * cos(ang)
+    const cosAng = Math.cos(ang);
+    const cornerXm = bxM - cosAng * tripleR; // this is negative! meaning behind baseline
+    // So the straight part goes from x=0 to x= bxM - tripleR*cos(ang)... but that's behind baseline
+    // Per FIBA rules: straight parts run from baseline inward (y=0.9 from sideline), the arc starts
+    // at the point where it reaches 6.75m from basket. The straight lines are parallel to the sidelines.
+
+    // Correct FIBA: straight lines parallel to SIDELINES (constant x = 0, varying y)
+    // Wait no - straight lines are parallel to the END LINE (baseline), constant y, varying x? No.
+    // FIBA: the two straight parts are PARALLEL TO THE SIDE LINES (i.e., run in the x direction, perpendicular to baseline)
+    // They start at the baseline and extend until they meet the arc.
+    // y_top = 0.9m from top sideline = 0.9
+    // At y=0.9: distance from basket = sqrt((x-bxM)^2 + (0.9-byM)^2) = 6.75
+    // (x-bxM)^2 = 6.75^2 - (byM-0.9)^2 = 45.5625 - (6.6)^2 = 45.5625 - 43.56 = 2.0025
+    // x - bxM = 1.415 → x = bxM + 1.415 = 2.99m from baseline (left side basket end)
+    const dx3 = Math.sqrt(tripleR*tripleR - (byM-cornerY)*(byM-cornerY));
+    const arcMeetX = bxM + dx3; // x in metres where straight meets arc (left side, going right)
+
+    // Draw top straight: from (0, cornerY) to (arcMeetX, cornerY)
+    ctx.beginPath();
+    ctx.moveTo(m(0, cornerY).x, m(0, cornerY).y);
+    ctx.lineTo(m(arcMeetX, cornerY).x, m(0, cornerY).y);
+    ctx.stroke();
+
+    // Draw bottom straight: from (0, courtH-cornerY) to (arcMeetX, courtH-cornerY)
+    ctx.beginPath();
+    ctx.moveTo(m(0, courtH-cornerY).x, m(0, courtH-cornerY).y);
+    ctx.lineTo(m(arcMeetX, courtH-cornerY).x, m(0, courtH-cornerY).y);
+    ctx.stroke();
+
+    // Arc from top corner to bottom corner (going right, away from baseline)
+    const angTop = Math.atan2(cornerY - byM, arcMeetX - bxM);  // angle from basket to top meet point
+    const angBot = Math.atan2((courtH-cornerY) - byM, arcMeetX - bxM);
+    ctx.beginPath();
+    ctx.arc(basket.x, basket.y, tripleR*scale, angTop, angBot, false);
+    ctx.stroke();
+
+  } else {
+    // Right basket end (mirror)
+    const rw = viewMode==='full' ? 28 : 14;
+    const bxMr = rw - basketFromBaseline; // basket x from left
+    const dx3 = Math.sqrt(tripleR*tripleR - (byM-cornerY)*(byM-cornerY));
+    const arcMeetX = bxMr - dx3; // going left
+
+    ctx.beginPath();
+    ctx.moveTo(m(rw, cornerY).x, m(0,cornerY).y);
+    ctx.lineTo(m(arcMeetX, cornerY).x, m(0,cornerY).y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(m(rw, courtH-cornerY).x, m(0,courtH-cornerY).y);
+    ctx.lineTo(m(arcMeetX, courtH-cornerY).x, m(0,courtH-cornerY).y);
+    ctx.stroke();
+
+    const angTop = Math.atan2(cornerY - byM, arcMeetX - bxMr);
+    const angBot = Math.atan2((courtH-cornerY) - byM, arcMeetX - bxMr);
+    ctx.beginPath();
+    ctx.arc(basket.x, basket.y, tripleR*scale, angTop, angBot, true);
+    ctx.stroke();
+  }
+
+  // Backboard: 1.2m wide, at 1.2m from baseline (FIBA: backboard face at 1.2m)
+  const bbXm = side === 'left' ? 1.2 : (viewMode==='full'?28:14) - 1.2;
+  const bbHalf = 0.9; // half width of backboard (1.8m total, but drawn as line)
+  ctx.lineWidth = LW * 2;
+  ctx.beginPath();
+  ctx.moveTo(m(bbXm, byM - bbHalf).x, m(0, byM - bbHalf).y);
+  ctx.lineTo(m(bbXm, byM + bbHalf).x, m(0, byM + bbHalf).y);
+  ctx.stroke();
+  ctx.lineWidth = LW;
+
+  // Rim (basket): circle at basket position, r=0.225m
+  ctx.beginPath();
+  ctx.arc(basket.x, basket.y, 0.225*scale, 0, Math.PI*2);
+  ctx.strokeStyle = '#cc2200'; ctx.lineWidth = LW*1.5;
+  ctx.stroke();
+  ctx.strokeStyle = LC; ctx.lineWidth = LW;
+
+  // Key lane marks (tick marks on key sides) - FIBA: marks at specific distances
+  // Marks on top and bottom of key at 1.75, 3.0 from free throw line inward
+  const markLen = 0.2 * scale;
+  const markPositions = [keyDepth - 1.75, keyDepth - 3.0];
+  markPositions.forEach(mxm => {
+    const mx = side === 'left' ? mxm : (viewMode==='full'?28:14) - mxm;
+    // top mark (outward from key)
+    ctx.beginPath();
+    ctx.moveTo(m(mx, keyTop).x, m(0,keyTop).y);
+    ctx.lineTo(m(mx, keyTop).x, m(0,keyTop).y - markLen);
+    ctx.stroke();
+    // bottom mark (outward)
+    ctx.beginPath();
+    ctx.moveTo(m(mx, keyBottom).x, m(0,keyBottom).y);
+    ctx.lineTo(m(mx, keyBottom).x, m(0,keyBottom).y + markLen);
+    ctx.stroke();
+  });
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderCourt() {
+  cc.clearRect(0, 0, CW, CH);
+  drawParquet(cc, CW, CH);
+  if (viewMode === 'full') drawFullCourtLines(cc, CW, CH);
+  else drawHalfCourtLines(cc, CW, CH);
+}
+
+function renderDraw() {
+  dc.clearRect(0, 0, CW, CH);
+  strokes.forEach(s => renderStroke(dc, s));
+  if (arrowPreview) {
+    dc.setLineDash([7,5]);
+    dc.strokeStyle = arrowPreview.color; dc.lineWidth = arrowPreview.size; dc.lineCap='round';
+    dc.beginPath(); dc.moveTo(arrowPreview.x1,arrowPreview.y1); dc.lineTo(arrowPreview.x2,arrowPreview.y2); dc.stroke();
+    dc.setLineDash([]);
+    drawArrowhead(dc, arrowPreview.x1,arrowPreview.y1,arrowPreview.x2,arrowPreview.y2,arrowPreview.color,arrowPreview.size);
+  }
+  if (linePreview) {
+    dc.setLineDash([7,5]);
+    dc.strokeStyle = linePreview.color; dc.lineWidth = linePreview.size; dc.lineCap='round';
+    dc.beginPath(); dc.moveTo(linePreview.x1,linePreview.y1); dc.lineTo(linePreview.x2,linePreview.y2); dc.stroke();
+    dc.setLineDash([]);
+  }
+  renderPlayers(dc);
+}
+
+function renderStroke(ctx, s) {
+  if (s.type === 'free') {
+    ctx.strokeStyle=s.color; ctx.lineWidth=s.size; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.beginPath();
+    s.pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+  } else if (s.type==='arrow') {
+    ctx.strokeStyle=s.color; ctx.lineWidth=s.size; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+    drawArrowhead(ctx,s.x1,s.y1,s.x2,s.y2,s.color,s.size);
+  } else if (s.type==='line') {
+    ctx.strokeStyle=s.color; ctx.lineWidth=s.size; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(s.x1,s.y1); ctx.lineTo(s.x2,s.y2); ctx.stroke();
+  }
+}
+
+function drawArrowhead(ctx,x1,y1,x2,y2,color,size) {
+  const a=Math.atan2(y2-y1,x2-x1), l=10+size*1.5;
+  ctx.fillStyle=color; ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-l*Math.cos(a-0.38),y2-l*Math.sin(a-0.38));
+  ctx.lineTo(x2-l*Math.cos(a+0.38),y2-l*Math.sin(a+0.38));
+  ctx.closePath(); ctx.fill();
+}
+
+function renderPlayers(ctx) {
+  players.forEach(p=>{
+    ctx.beginPath(); ctx.arc(p.x,p.y,16,0,Math.PI*2);
+    ctx.fillStyle=p.team==='local'?'#D85A30':'#185FA5'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#fff'; ctx.font='bold 12px system-ui,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(p.num,p.x,p.y);
+  });
+}
+
+function render() { renderCourt(); renderDraw(); }
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+function getPos(e) {
+  const r=drawCanvas.getBoundingClientRect();
+  const ex=e.touches?e.touches[0].clientX:e.clientX;
+  const ey=e.touches?e.touches[0].clientY:e.clientY;
+  return {x:(ex-r.left)*(CW/r.width),y:(ey-r.top)*(CH/r.height)};
+}
+function playerAt(x,y){for(let i=players.length-1;i>=0;i--){const dx=players[i].x-x,dy=players[i].y-y;if(Math.sqrt(dx*dx+dy*dy)<18)return i;}return -1;}
+function saveHistory(){history.push({players:JSON.parse(JSON.stringify(players)),strokes:JSON.parse(JSON.stringify(strokes))});if(history.length>40)history.shift();}
+
+function onDown(e){
+  const {x,y}=getPos(e);
+  if(tool==='select'){const i=playerAt(x,y);if(i>=0){saveHistory();dragging=i;dragOffset={x:players[i].x-x,y:players[i].y-y};}}
+  else if(tool==='draw'){saveHistory();drawing=true;currentStroke={type:'free',color:drawColor,size:brushSize,pts:[{x,y}]};}
+  else if(tool==='erase'){saveHistory();drawing=true;eraseNear(x,y);}
+  else if(tool==='arrow'){saveHistory();drawing=true;arrowStart={x,y};arrowPreview={color:drawColor,size:brushSize,x1:x,y1:y,x2:x,y2:y};}
+  else if(tool==='line'){saveHistory();drawing=true;lineStart={x,y};linePreview={color:drawColor,size:brushSize,x1:x,y1:y,x2:x,y2:y};}
+}
+function onMove(e){
+  const {x,y}=getPos(e);
+  if(tool==='select'&&dragging!==null){players[dragging].x=x+dragOffset.x;players[dragging].y=y+dragOffset.y;renderDraw();}
+  else if(tool==='draw'&&drawing&&currentStroke){currentStroke.pts.push({x,y});renderDraw();renderStroke(dc,currentStroke);renderPlayers(dc);}
+  else if(tool==='erase'&&drawing){eraseNear(x,y);}
+  else if(tool==='arrow'&&drawing&&arrowStart){arrowPreview={color:drawColor,size:brushSize,x1:arrowStart.x,y1:arrowStart.y,x2:x,y2:y};renderDraw();}
+  else if(tool==='line'&&drawing&&lineStart){linePreview={color:drawColor,size:brushSize,x1:lineStart.x,y1:lineStart.y,x2:x,y2:y};renderDraw();}
+}
+function onUp(e){
+  if(tool==='select'){dragging=null;}
+  else if(tool==='draw'&&drawing&&currentStroke){strokes.push(currentStroke);currentStroke=null;drawing=false;renderDraw();}
+  else if(tool==='erase'){drawing=false;}
+  else if(tool==='arrow'&&drawing&&arrowStart){
+    let pos;
+    if(e.changedTouches){const r=drawCanvas.getBoundingClientRect();pos={x:(e.changedTouches[0].clientX-r.left)*(CW/r.width),y:(e.changedTouches[0].clientY-r.top)*(CH/r.height)};}
+    else pos=getPos(e);
+    strokes.push({type:'arrow',color:drawColor,size:brushSize,x1:arrowStart.x,y1:arrowStart.y,x2:pos.x,y2:pos.y});
+    arrowPreview=null;arrowStart=null;drawing=false;renderDraw();
+  } else if(tool==='line'&&drawing&&lineStart){
+    let pos;
+    if(e.changedTouches){const r=drawCanvas.getBoundingClientRect();pos={x:(e.changedTouches[0].clientX-r.left)*(CW/r.width),y:(e.changedTouches[0].clientY-r.top)*(CH/r.height)};}
+    else pos=getPos(e);
+    strokes.push({type:'line',color:drawColor,size:brushSize,x1:lineStart.x,y1:lineStart.y,x2:pos.x,y2:pos.y});
+    linePreview=null;lineStart=null;drawing=false;renderDraw();
+  }
+}
+
+// Borrador real: elimina del array el trazo completo que pase cerca del
+// cursor, en vez de pintar/raspar un círculo (lo cual puede notarse según
+// el fondo). Más preciso y consistente con la versión de nuevo-post.html.
+function eraseNear(x, y) {
+  const radius = brushSize * 5 + 6;
+  const before = strokes.length;
+  strokes = strokes.filter(s => !strokeNearPoint(s, x, y, radius));
+  if (strokes.length !== before) renderDraw();
+}
+function strokeNearPoint(s, x, y, radius) {
+  if (s.type === 'free') return s.pts.some(p => Math.hypot(p.x-x, p.y-y) < radius);
+  if (s.type === 'arrow' || s.type === 'line') return distToSegment(x,y,s.x1,s.y1,s.x2,s.y2) < radius;
+  return false;
+}
+function distToSegment(px,py,x1,y1,x2,y2) {
+  const dx=x2-x1, dy=y2-y1, lenSq=dx*dx+dy*dy;
+  let t = lenSq===0 ? 0 : ((px-x1)*dx+(py-y1)*dy)/lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx=x1+t*dx, cy=y1+t*dy;
+  return Math.hypot(px-cx, py-cy);
+}
+
+drawCanvas.addEventListener('mousedown',onDown);
+drawCanvas.addEventListener('mousemove',onMove);
+drawCanvas.addEventListener('mouseup',onUp);
+drawCanvas.addEventListener('mouseleave',onUp);
+drawCanvas.addEventListener('touchstart',e=>{e.preventDefault();onDown(e);},{passive:false});
+drawCanvas.addEventListener('touchmove',e=>{e.preventDefault();onMove(e);},{passive:false});
+drawCanvas.addEventListener('touchend',e=>{e.preventDefault();onUp(e);},{passive:false});
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+function setTool(t){
+  tool=t;
+  ['select','draw','arrow','line','erase'].forEach(id=>document.getElementById('btn-'+id).classList.remove('active'));
+  document.getElementById('btn-'+t).classList.add('active');
+  const hints={select:'Arrastra los jugadores para moverlos',draw:'Clic y arrastra para dibujar',arrow:'Clic y arrastra para trazar flechas de movimiento',line:'Clic y arrastra para trazar una línea recta',erase:'Toca un trazo para eliminarlo por completo'};
+  document.getElementById('hint-text').textContent=hints[t];
+  drawCanvas.style.cursor=t==='select'?'default':'crosshair';
+}
+['select','draw','arrow','line','erase'].forEach(t=>document.getElementById('btn-'+t).onclick=()=>setTool(t));
+
+document.querySelectorAll('.color-swatch').forEach(s=>{
+  s.addEventListener('click',()=>{
+    document.querySelectorAll('.color-swatch').forEach(b=>b.classList.remove('active'));
+    s.classList.add('active'); drawColor=s.dataset.color;
+  });
+});
+document.getElementById('brush-size').oninput=function(){brushSize=parseInt(this.value);};
+
+function switchView(mode){
+  viewMode=mode; players=[]; strokes=[]; history=[];
+  let localCount=1, visitCount=1;
+  document.getElementById('btn-full').classList.toggle('active',mode==='full');
+  document.getElementById('btn-half').classList.toggle('active',mode==='half');
+  setSize(); render();
+}
+document.getElementById('btn-full').onclick=()=>switchView('full');
+document.getElementById('btn-half').onclick=()=>switchView('half');
+
+let localCount=1, visitCount=1;
+document.getElementById('btn-add-local').onclick=()=>{
+  if(players.filter(p=>p.team==='local').length>=5){alert('Máximo 5 jugadores locales');return;}
+  saveHistory();
+  players.push({x:80+Math.random()*CW*0.35,y:40+Math.random()*(CH-80),team:'local',num:localCount++});
+  renderDraw();
+};
+document.getElementById('btn-add-visit').onclick=()=>{
+  if(players.filter(p=>p.team==='visit').length>=5){alert('Máximo 5 jugadores visitantes');return;}
+  saveHistory();
+  players.push({x:CW*0.65+Math.random()*CW*0.3,y:40+Math.random()*(CH-80),team:'visit',num:visitCount++});
+  renderDraw();
+};
+
+document.getElementById('btn-undo').onclick=()=>{
+  if(!history.length)return;
+  const prev=history.pop();players=prev.players;strokes=prev.strokes;
+  localCount=players.filter(p=>p.team==='local').length+1;
+  visitCount=players.filter(p=>p.team==='visit').length+1;
+  renderDraw();
+};
+document.getElementById('btn-clear').onclick=()=>{
+  if(!confirm('¿Borrar todo el contenido de la pizarra?'))return;
+  saveHistory();players=[];strokes=[];localCount=1;visitCount=1;renderDraw();
+};
+document.getElementById('btn-save').onclick=()=>{
+  const merged=document.createElement('canvas');
+  merged.width=CW; merged.height=CH;
+  const mctx=merged.getContext('2d');
+  mctx.drawImage(courtCanvas,0,0);
+  mctx.drawImage(drawCanvas,0,0);
+  const link=document.createElement('a');
+  link.download='jugada-tactica.png'; link.href=merged.toDataURL('image/png'); link.click();
+};
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+setSize();
+render();
+window.addEventListener('resize',()=>{setSize();render();});
+</script>
+</body>
+</html>
