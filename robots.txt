@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://ivanseijo.github.io/basketball-analytics-web/sitemap.xml
